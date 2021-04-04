@@ -24,6 +24,7 @@
 #include "logger.h"
 
 static struct mem_block *g_head = NULL; /*!< Start (head) of our linked list */
+static struct mem_block *g_tail = NULL;
 
 static unsigned long g_allocations = 0; /*!< Allocation counter */
 static unsigned long g_regions = 0; /*!< Allocation counter */
@@ -71,7 +72,6 @@ struct mem_block *merge_block(struct mem_block *block)
  */
 void *first_fit(size_t size)
 {
-    // TODO: first fit FSM implementation
     return NULL;
 }
 
@@ -114,8 +114,35 @@ void *malloc(size_t size)
 {
     // TODO: allocate memory. You'll first check if you can reuse an existing
     // block. If not, map a new memory region.
+    size_t total_sz = size + sizeof(struct mem_block);
 
-    return NULL;
+    int prot_flags = PROT_READ | PROT_WRITE;
+    int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+    struct mem_block *block = mmap(NULL, total_sz, prot_flags, map_flags, -1, 0);
+
+    if (block == MAP_FAILED) {
+        perror("mmap");
+        return NULL;
+    }
+
+    snprintf(block->name, 32, "Allocation %lu", g_allocations++);
+    block->region_id = g_regions++;
+
+    if (g_head == NULL && g_tail == NULL) {
+        block->prev = NULL;
+        g_head = block;
+        g_tail = block;
+    } else {
+        g_tail->next = block;
+        block->prev = g_tail;
+        g_tail = block;
+    }
+
+    block->next = NULL;
+    block->free = false; //might change 
+    block->size = total_sz;
+
+    return block + 1;
 }
 
 void free(void *ptr)
@@ -125,6 +152,11 @@ void free(void *ptr)
         return;
     }
 
+    // struct mem_block *block = (struct mem_block *)ptr - 1;
+    // if (munmap(block, block->size) == -1) {
+    //     perror("munmap");
+    //     return;
+    // }
     // TODO: free memory. If the containing region is empty (i.e., there are no
     // more blocks in use), then it should be unmapped.
 }
@@ -132,7 +164,12 @@ void free(void *ptr)
 void *calloc(size_t nmemb, size_t size)
 {
     // TODO: hmm, what does calloc do?
-    return NULL;
+    void *ptr = malloc(nmemb * size);
+    if (ptr == NULL) {
+        return NULL;
+    }
+    memset(ptr, 0, nmemb * size);
+    return ptr;
 }
 
 void *realloc(void *ptr, size_t size)
@@ -143,9 +180,6 @@ void *realloc(void *ptr, size_t size)
     }
 
     if (size == 0) {
-        /* Realloc to 0 is often the same as freeing the memory block... But the
-         * C standard doesn't require this. We will free the block and return
-         * NULL here. */
         free(ptr);
         return NULL;
     }
