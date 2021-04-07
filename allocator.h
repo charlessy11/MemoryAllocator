@@ -18,6 +18,7 @@ void *first_fit(size_t size);
 void *worst_fit(size_t size);
 void *best_fit(size_t size);
 void print_memory(void);
+void *malloc_name(size_t size, char *name);
 
 /* -- C Memory API functions -- */
 void *malloc(size_t size);

@@ -19,9 +19,12 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "allocator.h"
 #include "logger.h"
+
+#define ALIGN_SZ 8
 
 static struct mem_block *g_head = NULL; /*!< Start (head) of our linked list */
 static struct mem_block *g_tail = NULL;
@@ -107,19 +110,63 @@ void *reuse(size_t size)
 {
     // TODO: using free space management (FSM) algorithms, find a block of
     // memory that we can reuse. Return NULL if no suitable block is found.
-    return NULL;
+    char *algo = getenv("ALLOCATOR_ALGORITHM");
+    if (algo == NULL) {
+        algo = "first_fit";
+    }
+
+    void *reused_block = NULL;
+
+    if (strcmp(algo, "first_fit") == 0) {
+        reused_block = first_fit(size);
+    } else if (strcmp(algo, "best_fit") == 0) {
+        reused_block = best_fit(size);
+    } else if (strcmp(algo, "worst_fit") == 0) {
+        reused_block = worst_fit(size);
+    }
+
+    if (reused_block != NULL) {
+
+    }
+    return reused_block;
+}
+
+void *malloc_name(size_t size, char *name) {
+    void *alloc = malloc(size);
+    if (alloc == NULL) {
+        return NULL;
+    }
+    struct mem_block *new_block = ((struct mem_block *) alloc) - 1;
+    strcpy(new_block->name, name);
+    return alloc;
 }
 
 void *malloc(size_t size)
 {
     // TODO: allocate memory. You'll first check if you can reuse an existing
     // block. If not, map a new memory region.
+    static const int prot_flags = PROT_READ | PROT_WRITE;
+    static const int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+
     size_t total_sz = size + sizeof(struct mem_block);
+    size_t aligned_sz = total_sz;
+    if (aligned_sz % ALIGN_SZ != 0) {
+        aligned_sz = aligned_sz + ALIGN_SZ - (total_sz % ALIGN_SZ);
+    }
 
-    int prot_flags = PROT_READ | PROT_WRITE;
-    int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
-    struct mem_block *block = mmap(NULL, total_sz, prot_flags, map_flags, -1, 0);
+    struct mem_block *reused_block = reuse(aligned_sz);
+    if (reused_block != NULL) {
+        return reused_block + 1;
+    }
 
+    int page_sz = getpagesize(); //4096
+    size_t num_pages = aligned_sz / page_sz;
+    if (aligned_sz % page_sz != 0) {
+        num_pages++;
+    }
+
+    size_t region_sz = num_pages * page_sz;
+    struct mem_block *block = mmap(NULL, region_sz, prot_flags, map_flags, -1, 0);
     if (block == MAP_FAILED) {
         perror("mmap");
         return NULL;
@@ -139,8 +186,10 @@ void *malloc(size_t size)
     }
 
     block->next = NULL;
-    block->free = false; //might change 
-    block->size = total_sz;
+    block->free = true;  
+    block->size = region_sz;
+    split_block(block, aligned_sz);
+    block->free = false;
 
     return block + 1;
 }
@@ -152,7 +201,8 @@ void free(void *ptr)
         return;
     }
 
-    // struct mem_block *block = (struct mem_block *)ptr - 1;
+    struct mem_block *block = (struct mem_block *)ptr - 1;
+    block->free = true;
     // if (munmap(block, block->size) == -1) {
     //     perror("munmap");
     //     return;
