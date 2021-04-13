@@ -20,6 +20,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "allocator.h"
 #include "logger.h"
@@ -75,6 +76,18 @@ struct mem_block *merge_block(struct mem_block *block)
  */
 void *first_fit(size_t size)
 {
+    struct mem_block *curr = g_head;
+
+    while (curr != NULL) {
+        if (size <= curr->size && curr->free == true) {
+            return curr;
+        }
+
+        if (curr->next == NULL) {
+            return NULL;
+        }
+        curr = curr->next;
+    }
     return NULL;
 }
 
@@ -103,6 +116,13 @@ void *worst_fit(size_t size)
 void *best_fit(size_t size)
 {
     // TODO: best fit FSM implementation
+    // struct mem_block *curr = g_head;
+    // struct mem_block *best = NULL;
+    // size_t best_size = INT_MAX;
+
+    // while (curr != NULL) {
+    //     //ssize_t diff = (ssize_t)curr->size - size;
+    // }
     return NULL;
 }
 
@@ -115,20 +135,20 @@ void *reuse(size_t size)
         algo = "first_fit";
     }
 
-    void *reused_block = NULL;
+    void *found = NULL;
 
     if (strcmp(algo, "first_fit") == 0) {
-        reused_block = first_fit(size);
+        found = first_fit(size);
     } else if (strcmp(algo, "best_fit") == 0) {
-        reused_block = best_fit(size);
+        found = best_fit(size);
     } else if (strcmp(algo, "worst_fit") == 0) {
-        reused_block = worst_fit(size);
+        found = worst_fit(size);
     }
 
-    if (reused_block != NULL) {
-
+    if (found != NULL) {
+        split_block(found, size);
     }
-    return reused_block;
+    return found;
 }
 
 void *malloc_name(size_t size, char *name) {
@@ -194,6 +214,7 @@ void *malloc(size_t size)
     return block + 1;
 }
 
+//omly place to MERGE()
 void free(void *ptr)
 {
     if (ptr == NULL) {
@@ -250,7 +271,20 @@ void print_memory(void)
 {
     puts("-- Current Memory State --");
     struct mem_block *current_block = g_head;
-    struct mem_block *current_region = NULL;
-    // TODO implement memory printout
+    unsigned long current_region = 0;
+    
+    while (current_block != NULL) {
+        if (current_block->region_id != current_region || current_block == g_head) {
+            printf("[REGION %ld] %p\n", current_block->region_id, current_block);
+        }
+
+        printf("  [BLOCK] %p-%p '%s' %zu [%s]\n", 
+            current_block, 
+            (char *)current_block + current_block->size, 
+            current_block->name,
+            current_block->size,
+            current_block->free ? "FREE" : "USED");
+        current_block = current_block->next;
+    }
 }
 
