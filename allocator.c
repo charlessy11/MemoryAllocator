@@ -49,7 +49,42 @@ pthread_mutex_t alloc_mutex = PTHREAD_MUTEX_INITIALIZER; /*< Mutex for protectin
  */
 struct mem_block *split_block(struct mem_block *block, size_t size)
 {
-    // TODO block splitting algorithm
+    //check if perfect fit before splitting
+    if (block->size == size) {
+        return NULL;
+    }
+    size_t min_sz = sizeof(struct mem_block) + ALIGN_SZ - 4;
+    //check if splitting is necessary
+    if (size < min_sz && block->free == false) {
+        return NULL;
+    } else {
+        size_t new_sz = block->size - size;
+        if (new_sz < min_sz) {
+            return NULL;
+        }
+        block->size = size;
+        // void *temp = (void *) block + size;
+        // struct mem_block *new_block = (struct mem_block *) temp;
+        struct mem_block *new_block = (void *) block + size;
+        new_block->size = new_sz;
+        // strcpy(new_block->name, "<name>");
+        //update pointers in linked list
+        if (block == g_tail) {
+            //update tail to be newly split block
+            g_tail->next = new_block;
+            g_tail = g_tail->next;
+            g_tail->prev = block;
+        } else {
+            new_block->next = block->next;
+            new_block->prev = block;
+            block->next = new_block;
+        }
+        block->free = false;
+        new_block->free = true;
+        new_block->region_id = block->region_id;
+        return new_block;
+    }
+
     return NULL;
 }
 
