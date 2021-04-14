@@ -49,6 +49,7 @@ pthread_mutex_t alloc_mutex = PTHREAD_MUTEX_INITIALIZER; /*< Mutex for protectin
  */
 struct mem_block *split_block(struct mem_block *block, size_t size)
 {
+    LOGP("--Splitting blocks--");
     //check if perfect fit before splitting
     if (block->size == size) {
         return NULL;
@@ -66,6 +67,7 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
         // void *temp = (void *) block + size;
         // struct mem_block *new_block = (struct mem_block *) temp;
         struct mem_block *new_block = (void *) block + size;
+        // block->size = size;
         new_block->size = new_sz;
         // strcpy(new_block->name, "<name>");
         //update pointers in linked list
@@ -82,9 +84,10 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
         block->free = false;
         new_block->free = true;
         new_block->region_id = block->region_id;
+        LOGP("SUCCESS! Able to split blocks!");
         return new_block;
     }
-
+    LOGP("FAIL! NOT able to split blocks!");
     return NULL;
 }
 
@@ -111,14 +114,17 @@ struct mem_block *merge_block(struct mem_block *block)
  */
 void *first_fit(size_t size)
 {
+    LOGP("--FIRST FIT--");
     struct mem_block *curr = g_head;
-
+    //keep searching until a free block is found
     while (curr != NULL) {
         if (size <= curr->size && curr->free == true) {
+            LOGP("Found free block!");
             return curr;
         }
 
         if (curr->next == NULL) {
+            LOGP("NO found free block!");
             return NULL;
         }
         curr = curr->next;
@@ -151,14 +157,33 @@ void *worst_fit(size_t size)
 void *best_fit(size_t size)
 {
     // TODO: best fit FSM implementation
-    // struct mem_block *curr = g_head;
-    // struct mem_block *best = NULL;
-    // size_t best_size = INT_MAX;
+    LOGP("--BEST FIT--");
+    struct mem_block *curr = g_head;
+    struct mem_block *best = NULL;
+    size_t best_size = INT_MAX;
 
-    // while (curr != NULL) {
-    //     //ssize_t diff = (ssize_t)curr->size - size;
-    // }
-    return NULL;
+    while (curr != NULL) {
+        ssize_t diff = (ssize_t)curr->size - size;
+        if (curr->size == size || diff == size) {
+            return curr;
+        }
+        else if (diff > size) {
+            if (best == NULL) {
+                best = curr;
+                best_size = diff;
+            }
+            if (diff < best_size && diff != best_size) {
+                best = curr;
+                best_size = diff;
+            }
+        }
+        curr = curr->next;
+    }
+    if (best == NULL) {
+        return NULL;
+    }
+
+    return best;
 }
 
 void *reuse(size_t size)
@@ -178,10 +203,12 @@ void *reuse(size_t size)
         found = best_fit(size);
     } else if (strcmp(algo, "worst_fit") == 0) {
         found = worst_fit(size);
+    } else {
+        return NULL;
     }
 
     if (found != NULL) {
-        split_block(found, size);
+        found = split_block(found, size);
     }
     return found;
 }
