@@ -54,11 +54,12 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
     if (block->size == size) {
         return NULL;
     }
-    size_t min_sz = sizeof(struct mem_block) + ALIGN_SZ - 4;
+    size_t min_sz = sizeof(struct mem_block) + size;
     //check if splitting is necessary
-    if (size < min_sz && block->free == false) {
+    if (size < min_sz || !block->free) {
         return NULL;
     } else {
+    // if (size >= min_sz && block->free) {
         size_t new_sz = block->size - size;
         if (new_sz < min_sz) {
             return NULL;
@@ -66,9 +67,14 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
         block->size = size;
         // void *temp = (void *) block + size;
         // struct mem_block *new_block = (struct mem_block *) temp;
-        struct mem_block *new_block = (void *) block + size;
+        struct mem_block *new_block = (void *) block + new_sz;
         // block->size = size;
         new_block->size = new_sz;
+        new_block->region_id = block->region_id;
+        new_block->free = true;
+        // new_block->next = block->next;
+        // block->next = new_block;
+        // new_block->prev = block;
         // strcpy(new_block->name, "<name>");
         //update pointers in linked list
         if (block == g_tail) {
@@ -81,12 +87,11 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
             new_block->prev = block;
             block->next = new_block;
         }
-        block->free = false;
-        new_block->free = true;
-        new_block->region_id = block->region_id;
+        // block->free = false;
         LOGP("SUCCESS! Able to split blocks!");
         return new_block;
     }
+    // }
     LOGP("FAIL! NOT able to split blocks!");
     return NULL;
 }
@@ -337,7 +342,7 @@ void print_memory(void)
     
     while (current_block != NULL) {
         if (current_block->region_id != current_region || current_block == g_head) {
-            printf("[REGION %ld] %p\n", current_block->region_id, current_block);
+            printf("[REGION %lu] %p\n", current_block->region_id, current_block);
         }
 
         printf("  [BLOCK] %p-%p '%s' %zu [%s]\n", 
