@@ -159,7 +159,7 @@ void *worst_fit(size_t size)
         if (curr->free == true) {
             ssize_t diff = (ssize_t)curr->size - size;
             if (diff >= size) {
-                if (diff > worst_size) {
+                if (worst == NULL || diff > worst_size) {
                     worst = curr;
                     worst_size = diff;
                 }
@@ -195,11 +195,7 @@ void *best_fit(size_t size)
                 return curr;
             }
             else if (diff > size) {
-                if (best == NULL) {
-                    best = curr;
-                    best_size = diff;
-                }
-                if (diff < best_size && diff != best_size) {
+                if (best == NULL || (diff < best_size && diff != best_size)) {
                     best = curr;
                     best_size = diff;
                 }
