@@ -158,14 +158,9 @@ void *worst_fit(size_t size)
     while (curr != NULL) {
         ssize_t diff = (ssize_t)curr->size - size;
         if (diff >= size) {
-            if (worst == NULL) {
+            if (diff > worst_size) {
                 worst = curr;
                 worst_size = diff;
-            } else {
-                if (diff > worst_size) {
-                    worst = curr;
-                    worst_size = diff;
-                }
             }
         }
         curr = curr->next;
@@ -192,7 +187,7 @@ void *best_fit(size_t size)
 
     while (curr != NULL) {
         //check if free == true
-        // if (curr->free == true) {
+        if (curr->free == true) {
             ssize_t diff = (ssize_t)curr->size - size;
             if (curr->size == size || diff == size) {
                 return curr;
@@ -207,8 +202,9 @@ void *best_fit(size_t size)
                     best_size = diff;
                 }
             }
-            curr = curr->next;
         }
+        curr = curr->next;
+    }
     // }
     if (best == NULL) {
         return NULL;
@@ -219,8 +215,6 @@ void *best_fit(size_t size)
 
 void *reuse(size_t size)
 {
-    // TODO: using free space management (FSM) algorithms, find a block of
-    // memory that we can reuse. Return NULL if no suitable block is found.
     char *algo = getenv("ALLOCATOR_ALGORITHM");
     if (algo == NULL) {
         algo = "first_fit";
@@ -256,8 +250,6 @@ void *malloc_name(size_t size, char *name) {
 
 void *malloc(size_t size)
 {
-    // TODO: allocate memory. You'll first check if you can reuse an existing
-    // block. If not, map a new memory region.
     static const int prot_flags = PROT_READ | PROT_WRITE;
     static const int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
