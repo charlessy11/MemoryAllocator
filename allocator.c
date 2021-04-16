@@ -168,6 +168,10 @@ void *worst_fit(size_t size)
         curr = curr->next;
     }
 
+    if (worst == NULL) {
+        return NULL;
+    }
+
     return worst;
 }
 
