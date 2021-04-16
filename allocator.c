@@ -156,13 +156,15 @@ void *worst_fit(size_t size)
     size_t worst_size = INT_MAX;
 
     while (curr != NULL) {
-        ssize_t diff = (ssize_t)curr->size - size;
-        if (diff >= size) {
-            if (diff > worst_size) {
-                worst = curr;
-                worst_size = diff;
+        if (curr->free == true) {
+            ssize_t diff = (ssize_t)curr->size - size;
+            if (diff >= size) {
+                if (diff > worst_size) {
+                    worst = curr;
+                    worst_size = diff;
+                }
             }
-        }
+        }     
         curr = curr->next;
     }
 
