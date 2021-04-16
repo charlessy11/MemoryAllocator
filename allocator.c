@@ -56,7 +56,10 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
     if (size < min_sz || size < 104 || !block->free) {
         return NULL;
     } else {
-        size_t new_sz = block->size - size;
+        if (size > block->size) {
+            return NULL;
+        }
+        ssize_t new_sz = block->size - size;
         LOG("New Size = %lu\n", new_sz);
         if (new_sz < min_sz) {
             return NULL;
@@ -153,17 +156,15 @@ void *worst_fit(size_t size)
 
     struct mem_block *curr = g_head;
     struct mem_block *worst = NULL;
-    size_t worst_size = INT_MAX;
+    size_t worst_size = 0;
 
     while (curr != NULL) {
-        if (curr->free == true) {
-            ssize_t diff = (ssize_t)curr->size - size;
-            if (diff >= size) {
-                if (worst == NULL || diff > worst_size) {
+        if (curr->free == true && curr->size > worst_size && curr->size > size) {
+            // ssize_t diff = (ssize_t)curr->size - size;
+            // if (diff >= worst_size) {
                     worst = curr;
-                    worst_size = diff;
-                }
-            }
+                    worst_size = curr->size;
+            // }
         }     
         curr = curr->next;
     }
@@ -195,21 +196,15 @@ void *best_fit(size_t size)
         //check if free == true
         if (curr->free == true) {
             ssize_t diff = (ssize_t)curr->size - size;
-            if (curr->size == size || diff == size) {
+            if (curr->size == size) {
                 return curr;
             }
-            else if (diff > size) {
-                if (best == NULL || (diff < best_size && diff != best_size)) {
+            else if (diff < best_size) {
                     best = curr;
                     best_size = diff;
-                }
             }
         }
         curr = curr->next;
-    }
-    // }
-    if (best == NULL) {
-        return NULL;
     }
 
     return best;
