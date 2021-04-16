@@ -50,26 +50,19 @@ pthread_mutex_t alloc_mutex = PTHREAD_MUTEX_INITIALIZER; /*< Mutex for protectin
 struct mem_block *split_block(struct mem_block *block, size_t size)
 {
     LOGP("--Splitting blocks--\n");
-    //check if perfect fit before splitting
-    if (block->size == size) {
-        return NULL;
-    }
-    size_t min_sz = sizeof(struct mem_block) + size;
+
+    size_t min_sz = sizeof(struct mem_block) + ALIGN_SZ;
     //check if splitting is necessary
     if (size < min_sz || size < 104 || !block->free) {
         return NULL;
     } else {
-    // if (size >= min_sz && block->free) {
         size_t new_sz = block->size - size;
         LOG("New Size = %lu\n", new_sz);
         if (new_sz < min_sz) {
             return NULL;
         }
         block->size = size;
-        // void *temp = (void *) block + size;
-        // struct mem_block *new_block = (struct mem_block *) temp;
-        struct mem_block *new_block = (void *) block + new_sz;
-        // block->size = size;
+        struct mem_block *new_block = (void *) block + size;
         new_block->size = new_sz;
         new_block->region_id = block->region_id;
         new_block->free = true;
@@ -86,24 +79,21 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
             new_block->next = NULL;
         }
 
+        new_block->prev = block;
+        new_block->next = block->next;
+        block->next = new_block;
+
         //update pointers in linked list
         if (block == g_tail) {
             //update tail to be newly split block
-            g_tail->next = new_block;
-            g_tail = g_tail->next;
-            g_tail->prev = block;
-        } else {
-            new_block->next = block->next;
-            new_block->prev = block;
-            block->next = new_block;
-        }
+            g_tail = new_block;
+        } 
         LOG("Block/Header Size = %lu\n", min_sz);
         LOG("New Size of Block = %lu\n", block->size);
         LOG("New Size of Second New Block = %lu\n", new_block->size);
         LOGP("SUCCESS! Able to split blocks!\n");
         return new_block;
     }
-    // }
     LOGP("FAIL! NOT able to split blocks!\n");
     return NULL;
 }
@@ -131,7 +121,7 @@ struct mem_block *merge_block(struct mem_block *block)
  */
 void *first_fit(size_t size)
 {
-    LOGP("--FIRST FIT--");
+    LOGP("\t--FIRST FIT--\n");
     struct mem_block *curr = g_head;
     //keep searching until a free block is found
     while (curr != NULL) {
@@ -159,8 +149,29 @@ void *first_fit(size_t size)
  */
 void *worst_fit(size_t size)
 {
-    // TODO: worst fit FSM implementation
-    return NULL;
+    LOGP("\t---- WORST_FIT() ----\n");
+
+    struct mem_block *curr = g_head;
+    struct mem_block *worst = NULL;
+    size_t worst_size = INT_MAX;
+
+    while (curr != NULL) {
+        ssize_t diff = (ssize_t)curr->size - size;
+        if (diff >= size) {
+            if (worst == NULL) {
+                worst = curr;
+                worst_size = diff;
+            } else {
+                if (diff > worst_size) {
+                    worst = curr;
+                    worst_size = diff;
+                }
+            }
+        }
+        curr = curr->next;
+    }
+
+    return worst;
 }
 
 /**
@@ -180,22 +191,25 @@ void *best_fit(size_t size)
     size_t best_size = INT_MAX;
 
     while (curr != NULL) {
-        ssize_t diff = (ssize_t)curr->size - size;
-        if (curr->size == size || diff == size) {
-            return curr;
-        }
-        else if (diff > size) {
-            if (best == NULL) {
-                best = curr;
-                best_size = diff;
+        //check if free == true
+        // if (curr->free == true) {
+            ssize_t diff = (ssize_t)curr->size - size;
+            if (curr->size == size || diff == size) {
+                return curr;
             }
-            if (diff < best_size && diff != best_size) {
-                best = curr;
-                best_size = diff;
+            else if (diff > size) {
+                if (best == NULL) {
+                    best = curr;
+                    best_size = diff;
+                }
+                if (diff < best_size && diff != best_size) {
+                    best = curr;
+                    best_size = diff;
+                }
             }
+            curr = curr->next;
         }
-        curr = curr->next;
-    }
+    // }
     if (best == NULL) {
         return NULL;
     }
@@ -225,7 +239,7 @@ void *reuse(size_t size)
     }
 
     if (found != NULL) {
-        found = split_block(found, size);
+        split_block(found, size);
     }
     return found;
 }
@@ -255,6 +269,7 @@ void *malloc(size_t size)
 
     struct mem_block *reused_block = reuse(aligned_sz);
     if (reused_block != NULL) {
+        reused_block->free = false;
         return reused_block + 1;
     }
 
@@ -355,6 +370,7 @@ void print_memory(void)
     while (current_block != NULL) {
         if (current_block->region_id != current_region || current_block == g_head) {
             printf("[REGION %lu] %p\n", current_block->region_id, current_block);
+            current_region = current_block->region_id;
         }
 
         printf("  [BLOCK] %p-%p '%s' %zu [%s]\n", 
