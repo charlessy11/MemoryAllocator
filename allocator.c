@@ -49,18 +49,19 @@ pthread_mutex_t alloc_mutex = PTHREAD_MUTEX_INITIALIZER; /*< Mutex for protectin
  */
 struct mem_block *split_block(struct mem_block *block, size_t size)
 {
-    LOGP("--Splitting blocks--");
+    LOGP("--Splitting blocks--\n");
     //check if perfect fit before splitting
     if (block->size == size) {
         return NULL;
     }
     size_t min_sz = sizeof(struct mem_block) + size;
     //check if splitting is necessary
-    if (size < min_sz || !block->free) {
+    if (size < min_sz || size < 104 || !block->free) {
         return NULL;
     } else {
     // if (size >= min_sz && block->free) {
         size_t new_sz = block->size - size;
+        LOG("New Size = %lu\n", new_sz);
         if (new_sz < min_sz) {
             return NULL;
         }
@@ -72,10 +73,19 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
         new_block->size = new_sz;
         new_block->region_id = block->region_id;
         new_block->free = true;
-        // new_block->next = block->next;
-        // block->next = new_block;
-        // new_block->prev = block;
-        // strcpy(new_block->name, "<name>");
+        
+        LOG("Block/Header Size = %lu\n", min_sz);
+        LOG("Block Size Being Split = %lu\n", size);
+        LOG("New Size of First Block AFTER Split = %lu\n", block->size);
+        LOG("New Size of Second Block AFTER Split = %lu\n", new_block->size);
+
+        if (block->next != NULL) {
+            block->next->prev = new_block;
+            new_block->next = block->next;
+        } else {
+            new_block->next = NULL;
+        }
+
         //update pointers in linked list
         if (block == g_tail) {
             //update tail to be newly split block
@@ -87,12 +97,14 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
             new_block->prev = block;
             block->next = new_block;
         }
-        // block->free = false;
-        LOGP("SUCCESS! Able to split blocks!");
+        LOG("Block/Header Size = %lu\n", min_sz);
+        LOG("New Size of Block = %lu\n", block->size);
+        LOG("New Size of Second New Block = %lu\n", new_block->size);
+        LOGP("SUCCESS! Able to split blocks!\n");
         return new_block;
     }
     // }
-    LOGP("FAIL! NOT able to split blocks!");
+    LOGP("FAIL! NOT able to split blocks!\n");
     return NULL;
 }
 
