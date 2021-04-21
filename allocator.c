@@ -160,11 +160,8 @@ void *worst_fit(size_t size)
 
     while (curr != NULL) {
         if (curr->free == true && curr->size > worst_size && curr->size > size) {
-            // ssize_t diff = (ssize_t)curr->size - size;
-            // if (diff >= worst_size) {
-                    worst = curr;
-                    worst_size = curr->size;
-            // }
+            worst = curr;
+            worst_size = curr->size;
         }     
         curr = curr->next;
     }
@@ -247,6 +244,8 @@ void *malloc_name(size_t size, char *name) {
 
 void *malloc(size_t size)
 {
+    pthread_mutex_lock(&alloc_mutex);
+
     static const int prot_flags = PROT_READ | PROT_WRITE;
     static const int map_flags = MAP_PRIVATE | MAP_ANONYMOUS;
 
@@ -259,6 +258,11 @@ void *malloc(size_t size)
     struct mem_block *reused_block = reuse(aligned_sz);
     if (reused_block != NULL) {
         reused_block->free = false;
+        char *scribbling = getenv("ALLOCATOR_SCRIBBLE");
+        if (scribbling != NULL && atoi(scribbling) == 1) {
+            memset(reused_block + 1, 0xAA, size);
+        }
+        pthread_mutex_unlock(&alloc_mutex);
         return reused_block + 1;
     }
 
@@ -272,6 +276,7 @@ void *malloc(size_t size)
     struct mem_block *block = mmap(NULL, region_sz, prot_flags, map_flags, -1, 0);
     if (block == MAP_FAILED) {
         perror("mmap");
+        pthread_mutex_unlock(&alloc_mutex);
         return NULL;
     }
 
@@ -291,9 +296,15 @@ void *malloc(size_t size)
     block->next = NULL;
     block->free = true;  
     block->size = region_sz;
-    split_block(block, aligned_sz);
-    block->free = false;
 
+    split_block(block, aligned_sz);
+
+    char *scribbling = getenv("ALLOCATOR_SCRIBBLE");
+    if (scribbling != NULL && atoi(scribbling) == 1) {
+        memset(block + 1, 0xAA, size);
+    }    
+    block->free = false;
+    pthread_mutex_unlock(&alloc_mutex);
     return block + 1;
 }
 
