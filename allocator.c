@@ -115,36 +115,38 @@ struct mem_block *merge_block(struct mem_block *block)
     if (block->free == false) {
         return NULL;
     }
-    if (block->prev != NULL) {
-        if (block->prev->free && block->region_id == block->prev->region_id) {
-            block->prev->size += block->size;
-
-            if (block->next != NULL) {
-                block->prev->next = block->next;
-                block->next->prev = block->prev;
-            } else {
-                block->prev->next = NULL;
-            }
-            if (block == g_tail) {
+    if (block->prev != NULL) { 
+        if (block->prev->region_id == block->region_id && block->prev->free) {
+            if (g_tail == block) {
                 g_tail = block->prev;
             }
+
+            block->prev->size += block->size;
+
+            if (block->next == NULL) {
+                block->prev->next = NULL;
+            } else {
+                block->prev->next = block->next;
+                block->next->prev = block->prev;
+            }
+            
             block = block->prev;
         }
     }
 
     if (block->next != NULL) {
-        if (block->next->free && block->region_id == block->next->region_id) {
+        if (block->next->region_id == block->region_id && block->next->free) {
             if (g_tail == block->next) {
                 g_tail = block;
             }
 
             block->size += block->next->size;
 
-            if (block->next->next != NULL) {
+            if (block->next->next == NULL) {
+                block->next = NULL;
+            } else {
                 block->next = block->next->next;
                 block->next->prev = block;
-            } else {
-                block->next = NULL;
             }
         }
     }
@@ -219,7 +221,6 @@ void *worst_fit(size_t size)
  */
 void *best_fit(size_t size)
 {
-    // TODO: best fit FSM implementation
     LOGP("--BEST FIT--");
     struct mem_block *curr = g_head;
     struct mem_block *best = NULL;
@@ -344,7 +345,6 @@ void *malloc(size_t size)
     return block + 1;
 }
 
-//omly place to MERGE()
 void free(void *ptr)
 {
     if (ptr == NULL) {
@@ -375,13 +375,10 @@ void free(void *ptr)
     //         return;
     //     }
     // }
-    // TODO: free memory. If the containing region is empty (i.e., there are no
-    // more blocks in use), then it should be unmapped.
 }
 
 void *calloc(size_t nmemb, size_t size)
 {
-    // TODO: hmm, what does calloc do?
     void *ptr = malloc(nmemb * size);
     if (ptr == NULL) {
         return NULL;
@@ -441,4 +438,3 @@ void print_memory(void)
         current_block = current_block->next;
     }
 }
-
