@@ -347,34 +347,39 @@ void *malloc(size_t size)
 
 void free(void *ptr)
 {
+    pthread_mutex_lock(&alloc_mutex);
+
     if (ptr == NULL) {
         /* Freeing a NULL pointer does nothing */
+        pthread_mutex_unlock(&alloc_mutex);
         return;
     }
 
     struct mem_block *block = (struct mem_block *)ptr - 1;
     block->free = true;
 
-    // block = merge_block(block);
+    block = merge_block(block);
 
-    // if ((block->prev == NULL || block->prev->region_id != block->region_id) && (block->next == NULL || block->next->region_id != block->region_id)) {
-    //     if (block->prev != NULL) {
-    //         block->prev->next = block->next;
-    //     }
-    //     if (block->next != NULL) {
-    //         block->next->prev = block->prev;
-    //     }
-    //     if (g_tail == block) {
-    //         g_tail = block->prev;
-    //     }
-    //     if (g_head == block) {
-    //         g_head = block->next;
-    //     }
-    //     if (munmap(block, block->size) == -1) {
-    //         perror("munmap");
-    //         return;
-    //     }
-    // }
+    if ((block->prev == NULL || block->prev->region_id != block->region_id) && (block->next == NULL || block->next->region_id != block->region_id)) {
+        if (block->prev != NULL) {
+            block->prev->next = block->next;
+        }
+        if (block->next != NULL) {
+            block->next->prev = block->prev;
+        }
+        if (g_tail == block) {
+            g_tail = block->prev;
+        }
+        if (g_head == block) {
+            g_head = block->next;
+        }
+        if (munmap(block, block->size) == -1) {
+            perror("munmap");
+            pthread_mutex_unlock(&alloc_mutex);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&alloc_mutex);
 }
 
 void *calloc(size_t nmemb, size_t size)
