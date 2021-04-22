@@ -112,8 +112,44 @@ struct mem_block *split_block(struct mem_block *block, size_t size)
  */
 struct mem_block *merge_block(struct mem_block *block)
 {
-    // TODO block merging algorithm
-    return NULL;
+    if (block->free == false) {
+        return NULL;
+    }
+    if (block->prev != NULL) {
+        if (block->prev->free && block->region_id == block->prev->region_id) {
+            block->prev->size += block->size;
+
+            if (block->next != NULL) {
+                block->prev->next = block->next;
+                block->next->prev = block->prev;
+            } else {
+                block->prev->next = NULL;
+            }
+            if (block == g_tail) {
+                g_tail = block->prev;
+            }
+            block = block->prev;
+        }
+    }
+
+    if (block->next != NULL) {
+        if (block->next->free && block->region_id == block->next->region_id) {
+            if (g_tail == block->next) {
+                g_tail = block;
+            }
+
+            block->size += block->next->size;
+
+            if (block->next->next != NULL) {
+                block->next = block->next->next;
+                block->next->prev = block;
+            } else {
+                block->next = NULL;
+            }
+        }
+    }
+
+    return block;
 }
 
 /**
@@ -318,9 +354,26 @@ void free(void *ptr)
 
     struct mem_block *block = (struct mem_block *)ptr - 1;
     block->free = true;
-    // if (munmap(block, block->size) == -1) {
-    //     perror("munmap");
-    //     return;
+
+    // block = merge_block(block);
+
+    // if ((block->prev == NULL || block->prev->region_id != block->region_id) && (block->next == NULL || block->next->region_id != block->region_id)) {
+    //     if (block->prev != NULL) {
+    //         block->prev->next = block->next;
+    //     }
+    //     if (block->next != NULL) {
+    //         block->next->prev = block->prev;
+    //     }
+    //     if (g_tail == block) {
+    //         g_tail = block->prev;
+    //     }
+    //     if (g_head == block) {
+    //         g_head = block->next;
+    //     }
+    //     if (munmap(block, block->size) == -1) {
+    //         perror("munmap");
+    //         return;
+    //     }
     // }
     // TODO: free memory. If the containing region is empty (i.e., there are no
     // more blocks in use), then it should be unmapped.
@@ -349,9 +402,15 @@ void *realloc(void *ptr, size_t size)
         return NULL;
     }
 
-    // TODO: reallocation logic
+    void *new_ptr = malloc(size);
+    if (new_ptr == NULL) {
+        perror("malloc");
+        return NULL;
+    }
+    memcpy(new_ptr, ptr, size); 
+    free(ptr); 
 
-    return NULL;
+    return new_ptr;
 }
 
 /**
