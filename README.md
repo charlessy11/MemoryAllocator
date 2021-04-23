@@ -1,16 +1,16 @@
-# Project 3: Memory Allocator
+## Project 3: Memory Allocator
 
 See: https://www.cs.usfca.edu/~mmalensek/cs326/assignments/project-3.html 
 
-**About This Program:**
+# About This Program
 
 The Memory Allocator Program is a custom memory allocator.To simplify the allocator, mmap alone is being used, and entire **regions** of memory are allocated at a time. Moreover, this program does not only support allocating memory, but also uses the _Free Space Management_ (FSM) algorithms to split up and reuse empty regions, namely: **First fit, Best fit, and Worst fit**. 
 
-**How It Works:**
+# How It Works
 
 The programs uses a custom memory allocator instead of the default.
 
-**How It's Built:**
+# How It's Built
 
 Here is a list of methods from `allocator.c` - the class explores memory management at the C runtime level:
 
@@ -53,7 +53,7 @@ Here is a list of methods from `allocator.c` - the class explores memory managem
 `struct mem_block {char name[32]; size_t size; bool free; unsigned long region_id; struct mem_block *next; struct mem_block *prev; char padding[35]}`
 => Defines metadata structure for both memory 'regions' and 'blocks.' This structure is prefixed before each allocation's data area.
 
-## To compile and use the allocator:
+# To compile and use the allocator:
 
 ```bash 
 make
@@ -62,7 +62,7 @@ LD_PRELOAD=$(pwd)/allocator.so ls /
 
 (in this example, the command `ls /` is run with the custom memory allocator instead of the default).
 
-## Testing
+# Testing
 
 To execute the test cases, use `make test`. To pull in updated test cases, run `make testupdate`. You can also run a specific test case instead of all of them:
 
