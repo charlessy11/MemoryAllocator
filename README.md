@@ -2,6 +2,10 @@
 
 See: https://www.cs.usfca.edu/~mmalensek/cs326/assignments/project-3.html 
 
+**About This Program:**
+
+The Memory Allocator Program is a custom memory allocator.To simplify the allocator, mmap alone is being used, and entire **regions** of memory are allocated at a time. Moreover, this program does not only support allocating memory, but also uses the _Free Space Management_ (FSM) algorithms to split up and reuse empty regions, namely: **First fit, Best fit, and Worst fit**. 
+
 To compile and use the allocator:
 
 ```bash
